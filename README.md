@@ -28,6 +28,13 @@ python -m pip install -U pip
 pip install -e .
 ```
 
+For test development:
+
+```bash
+pip install -e ".[dev]"
+python -m pytest
+```
+
 ## Inspect an experiment
 
 ```bash
@@ -40,21 +47,66 @@ roa inspect "X:\Cations_and_PGA\ROA-data\260621_CdCl2_precipitated\prec_42uL_92m
 roa process "X:\Cations_and_PGA\ROA-data\260621_CdCl2_precipitated\prec_42uL_92mgml_PGA_6uL_1M_CdCL2_pH7-N20-500mW-146791s_0312026-06-21_info.txt" --output processed
 ```
 
+Relative output folders are created beside the input `*_info.txt` file. For example,
+`--output processed` writes to `X:\...\sample_folder\processed\`, not to the
+directory where the command was launched.
+
 ## Useful options
 
 ```bash
-roa process "X:\...\sample_info.txt" --output processed --spike-threshold 2 --average mean
-roa process "X:\...\sample_info.txt" --output processed --spike-threshold 3 --average median
+roa inspect "X:\...\sample_info.txt" --min-wavenumber 200
+roa process "X:\...\sample_info.txt" --output processed --min-wavenumber 200
+roa process "X:\...\sample_info.txt" --output processed --min-wavenumber 200 --max-wavenumber 1800
+roa process "X:\...\sample_info.txt" --output processed --spike-threshold 2
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-power
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-time
 ```
 
+The wavenumber filter is applied after file reading and axis reversal, before
+cumulative blocks are converted to isolated blocks. `inspect` reports both the
+original and processed wavenumber ranges.
+
+## ROA QC and conservative denoising
+
+By default, processing calculates QC diagnostics in the ROA silent region
+`1800-2609 cm^-1` when enough points are present, but it does not denoise or
+reject blocks unless requested.
+
+```bash
+roa process "X:\...\sample_info.txt" --output processed --roa-qc-range 1800 2609
+roa process "X:\...\sample_info.txt" --output processed --roa-denoise-qc
+roa process "X:\...\sample_info.txt" --output processed --roa-denoise-qc --roa-qc-reject-blocks --roa-qc-max-block-noise 3
+roa process "X:\...\sample_info.txt" --output processed --roa-qc-smooth
+```
+
+QC denoising exports comparison columns such as `roa_qc_weighted_mean`,
+`roa_qc_weighted_smoothed`, and `roa_qc_removed_noise`. It never overwrites the
+standard `roa_mean_after_spike_removal` column.
+
 ## Plot from processed result
 
 ```bash
-roa plot processed --kind final
-roa plot processed --kind spikes
-roa plot processed --kind isolated-roa
+roa plot processed --info-file "X:\...\sample_info.txt" --kind final
+roa plot processed --info-file "X:\...\sample_info.txt" --kind spikes
+roa plot processed --info-file "X:\...\sample_info.txt" --kind isolated-roa
+```
+
+`--info-file` lets the plot command resolve a relative processed folder the same
+way as `process`.
+
+## Main exports
+
+Processing writes:
+
+```text
+metadata.json
+processing_config.json
+final_spectra.csv
+roa_qc_block_summary.csv
+isolated_blocks.npz
+roa_spike_cleaning.npz
+roa_qc.npz
+figures/
 ```
 
 ## Important assumption

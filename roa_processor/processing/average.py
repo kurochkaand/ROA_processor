@@ -25,6 +25,9 @@ def trimmed_mean(matrix: np.ndarray, proportion_to_cut: float = 0.1) -> np.ndarr
 def make_final_spectra(
     isolated: IsolatedExperiment,
     spike_result: SpikeResult,
+    roa_qc_weighted_mean: np.ndarray | None = None,
+    roa_qc_weighted_smoothed: np.ndarray | None = None,
+    roa_qc_removed_noise: np.ndarray | None = None,
 ) -> FinalSpectra:
     return FinalSpectra(
         wavenumber=isolated.wavenumber.copy(),
@@ -34,4 +37,7 @@ def make_final_spectra(
         roa_mean_after_spike_removal=np.mean(spike_result.roa_cleaned, axis=0),
         roa_median_after_spike_removal=np.median(spike_result.roa_cleaned, axis=0),
         n_spikes_at_wavenumber=np.sum(spike_result.spike_mask, axis=0).astype(int),
+        roa_qc_weighted_mean=roa_qc_weighted_mean,
+        roa_qc_weighted_smoothed=roa_qc_weighted_smoothed,
+        roa_qc_removed_noise=roa_qc_removed_noise,
     )

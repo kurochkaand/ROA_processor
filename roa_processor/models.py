@@ -63,6 +63,10 @@ class LoadedExperiment:
     info_file: Path
     prefix: str
     blocks: list[SpectrumBlock]
+    original_wavenumber_range: tuple[float, float] | None = None
+    processed_wavenumber_range: tuple[float, float] | None = None
+    original_spectral_points: int | None = None
+    processed_spectral_points: int | None = None
 
     @property
     def n_blocks(self) -> int:
@@ -79,6 +83,10 @@ class LoadedExperiment:
             "info_file": str(self.info_file),
             "prefix": self.prefix,
             "n_blocks": self.n_blocks,
+            "original_wavenumber_range": self.original_wavenumber_range,
+            "processed_wavenumber_range": self.processed_wavenumber_range,
+            "original_spectral_points": self.original_spectral_points,
+            "processed_spectral_points": self.processed_spectral_points,
             "blocks": [
                 {
                     "filename": asdict(block.metadata.filename),
@@ -119,3 +127,33 @@ class FinalSpectra:
     roa_mean_after_spike_removal: np.ndarray
     roa_median_after_spike_removal: np.ndarray
     n_spikes_at_wavenumber: np.ndarray
+    roa_qc_weighted_mean: np.ndarray | None = None
+    roa_qc_weighted_smoothed: np.ndarray | None = None
+    roa_qc_removed_noise: np.ndarray | None = None
+
+
+@dataclass
+class RoaQcResult:
+    requested_range: tuple[float, float]
+    used_range: tuple[float, float] | None
+    qc_mask: np.ndarray
+    block_summary: list[dict[str, Any]]
+    accepted_mask: np.ndarray
+    rejected_mask: np.ndarray
+    weights: np.ndarray | None
+    weighted_mean: np.ndarray | None
+    smoothed: np.ndarray | None
+    removed_noise: np.ndarray | None
+    denoise_enabled: bool
+    reject_blocks_enabled: bool
+    smoothing_enabled: bool
+    smoothing_parameters: dict[str, Any] | None
+    warning: str | None = None
+
+    @property
+    def is_available(self) -> bool:
+        return self.used_range is not None and bool(np.any(self.qc_mask))
+
+    @property
+    def n_rejected(self) -> int:
+        return int(np.sum(self.rejected_mask))

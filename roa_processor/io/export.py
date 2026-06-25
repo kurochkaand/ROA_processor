@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -11,12 +10,22 @@ from roa_processor.models import (
     FinalSpectra,
     IsolatedExperiment,
     LoadedExperiment,
+    RoaQcResult,
     SpikeResult,
 )
 
 
-def ensure_output_dirs(output: str | Path) -> Path:
+def resolve_output_path(output: str | Path, base_dir: str | Path | None = None) -> Path:
     output = Path(output)
+    if not output.is_absolute():
+        if base_dir is not None:
+            output = Path(base_dir) / output
+        output = output.resolve()
+    return output
+
+
+def ensure_output_dirs(output: str | Path, base_dir: str | Path | None = None) -> Path:
+    output = resolve_output_path(output, base_dir=base_dir)
     output.mkdir(parents=True, exist_ok=True)
     (output / "figures").mkdir(parents=True, exist_ok=True)
     return output
@@ -34,6 +43,12 @@ def save_metadata(
 
     with (output / "metadata.json").open("w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
+
+
+def save_processing_config(output: str | Path, config: dict) -> None:
+    output = ensure_output_dirs(output)
+    with (output / "processing_config.json").open("w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
 
 
 def save_isolated_npz(output: str | Path, isolated: IsolatedExperiment) -> None:
@@ -79,6 +94,7 @@ def save_spikes(output: str | Path, isolated: IsolatedExperiment, spike_result: 
 
 def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
     output = ensure_output_dirs(output)
+    n_points = len(final.wavenumber)
     df = pd.DataFrame(
         {
             "wavenumber_cm-1": final.wavenumber,
@@ -87,10 +103,50 @@ def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
             "roa_mean_before_spike_removal": final.roa_mean_before_spike_removal,
             "roa_mean_after_spike_removal": final.roa_mean_after_spike_removal,
             "roa_median_after_spike_removal": final.roa_median_after_spike_removal,
+            "roa_qc_weighted_mean": _optional_column(final.roa_qc_weighted_mean, n_points),
+            "roa_qc_weighted_smoothed": _optional_column(
+                final.roa_qc_weighted_smoothed,
+                n_points,
+            ),
+            "roa_qc_removed_noise": _optional_column(final.roa_qc_removed_noise, n_points),
             "number_of_spikes_at_this_wavenumber": final.n_spikes_at_wavenumber,
         }
     )
     df.to_csv(output / "final_spectra.csv", index=False)
+
+
+def _optional_column(values: np.ndarray | None, n_points: int) -> np.ndarray:
+    if values is None:
+        return np.full(n_points, np.nan)
+    return values
+
+
+def save_roa_qc(output: str | Path, qc_result: RoaQcResult) -> None:
+    output = ensure_output_dirs(output)
+    pd.DataFrame(qc_result.block_summary).to_csv(
+        output / "roa_qc_block_summary.csv",
+        index=False,
+    )
+
+    weights = (
+        qc_result.weights
+        if qc_result.weights is not None
+        else np.full(len(qc_result.accepted_mask), np.nan)
+    )
+    np.savez_compressed(
+        output / "roa_qc.npz",
+        qc_mask=qc_result.qc_mask,
+        accepted_mask=qc_result.accepted_mask,
+        rejected_mask=qc_result.rejected_mask,
+        weights=weights,
+        weighted_mean=np.array([])
+        if qc_result.weighted_mean is None
+        else qc_result.weighted_mean,
+        smoothed=np.array([]) if qc_result.smoothed is None else qc_result.smoothed,
+        removed_noise=np.array([])
+        if qc_result.removed_noise is None
+        else qc_result.removed_noise,
+    )
 
 
 def load_processed_npz(output: str | Path) -> dict[str, np.ndarray]:
