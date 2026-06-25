@@ -43,8 +43,8 @@ roa process "X:\Cations_and_PGA\ROA-data\260621_CdCl2_precipitated\prec_42uL_92m
 ## Useful options
 
 ```bash
-roa process "X:\...\sample_info.txt" --output processed --spike-threshold 8 --average mean
-roa process "X:\...\sample_info.txt" --output processed --spike-threshold 10 --average median
+roa process "X:\...\sample_info.txt" --output processed --spike-threshold 2 --average mean
+roa process "X:\...\sample_info.txt" --output processed --spike-threshold 3 --average median
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-power
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-time
 ```
