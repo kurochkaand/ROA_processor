@@ -1,6 +1,6 @@
 # ROA Processor MVP
 
-A minimal CLI program for processing Raman and ROA spectra saved as cumulative block files.
+A CLI program for processing Raman and ROA spectra saved as cumulative block files.
 
 This first version does:
 
@@ -45,6 +45,7 @@ roa inspect "X:\Cations_and_PGA\ROA-data\260621_CdCl2_precipitated\prec_42uL_92m
 
 ```bash
 roa process "X:\Cations_and_PGA\ROA-data\260621_CdCl2_precipitated\prec_42uL_92mgml_PGA_6uL_1M_CdCL2_pH7-N20-500mW-146791s_0312026-06-21_info.txt" --output processed
+roa process "X:\Cations_and_PGA\ROA-data\260618_ZnCl2\260619_32uL_Zn_in_42uL_PGA_05eqv\Zn_05eqv-N20-400mW-2.93581s_0242026-06-19_info.txt" --output processed
 ```
 
 Relative output folders are created beside the input `*_info.txt` file. For example,
