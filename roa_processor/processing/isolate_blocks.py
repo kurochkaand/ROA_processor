@@ -107,3 +107,46 @@ def cumulative_to_isolated(
         power_at_sample_mw=powers,
         block_indices=block_indices,
     )
+
+
+def filter_isolated_by_block_range(
+    isolated: IsolatedExperiment,
+    block_range: tuple[int, int] | None,
+) -> IsolatedExperiment:
+    if block_range is None:
+        return isolated
+
+    start, end = block_range
+    mask = (isolated.block_indices >= start) & (isolated.block_indices <= end)
+    if not np.any(mask):
+        available = block_index_range(isolated.block_indices)
+        available_text = format_block_index_range(available)
+        raise ValueError(
+            f"Block range {start}-{end} did not match any loaded blocks. "
+            f"Available block indices are {available_text}."
+        )
+
+    return IsolatedExperiment(
+        wavenumber=isolated.wavenumber.copy(),
+        raman_raw=isolated.raman_raw[mask, :].copy(),
+        roa_raw=isolated.roa_raw[mask, :].copy(),
+        raman_norm=isolated.raman_norm[mask, :].copy(),
+        roa_norm=isolated.roa_norm[mask, :].copy(),
+        delta_times_s=isolated.delta_times_s[mask].copy(),
+        delta_cycles=isolated.delta_cycles[mask].copy(),
+        power_at_sample_mw=isolated.power_at_sample_mw[mask].copy(),
+        block_indices=isolated.block_indices[mask].copy(),
+    )
+
+
+def block_index_range(block_indices: np.ndarray) -> tuple[int, int]:
+    if block_indices.size == 0:
+        raise ValueError("Cannot determine range for no block indices.")
+    return (int(block_indices[0]), int(block_indices[-1]))
+
+
+def format_block_index_range(block_range: tuple[int, int] | None) -> str:
+    if block_range is None:
+        return "all"
+    start, end = block_range
+    return f"{start:03d}-{end:03d}"

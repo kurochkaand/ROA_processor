@@ -58,6 +58,7 @@ directory where the command was launched.
 roa inspect "X:\...\sample_info.txt" --min-wavenumber 200
 roa process "X:\...\sample_info.txt" --output processed --min-wavenumber 200
 roa process "X:\...\sample_info.txt" --output processed --min-wavenumber 200 --max-wavenumber 1800
+roa process "X:\...\sample_info.txt" --output processed --range 1-50
 roa process "X:\...\sample_info.txt" --output processed --spike-threshold 2
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-power
 roa process "X:\...\sample_info.txt" --output processed --no-normalize-time
@@ -66,6 +67,11 @@ roa process "X:\...\sample_info.txt" --output processed --no-normalize-time
 The wavenumber filter is applied after file reading and axis reversal, before
 cumulative blocks are converted to isolated blocks. `inspect` reports both the
 original and processed wavenumber ranges.
+
+`--range START-END` limits processing to an inclusive filename block index range.
+For example, `--range 1-50` processes isolated blocks `A-001` through `A-050`.
+The range is applied after cumulative blocks are converted to isolated blocks,
+so block `A-001` is still calculated as `cumulative_001 - cumulative_000`.
 
 ## ROA QC and conservative denoising
 

@@ -26,7 +26,12 @@ from roa_processor.plotting.plots import (
     plot_spike_heatmap,
 )
 from roa_processor.processing.average import make_final_spectra
-from roa_processor.processing.isolate_blocks import cumulative_to_isolated
+from roa_processor.processing.isolate_blocks import (
+    block_index_range,
+    cumulative_to_isolated,
+    filter_isolated_by_block_range,
+    format_block_index_range,
+)
 from roa_processor.processing.roa_qc import analyze_roa_qc
 from roa_processor.processing.spike_detection import detect_and_replace_spikes_block_mad
 
@@ -111,6 +116,8 @@ def cmd_process(args: argparse.Namespace) -> None:
         normalize_time=not args.no_normalize_time,
         normalize_power=not args.no_normalize_power,
     )
+    isolated = filter_isolated_by_block_range(isolated, args.block_range)
+    processed_block_range = block_index_range(isolated.block_indices)
 
     spike_result = detect_and_replace_spikes_block_mad(
         isolated.roa_norm,
@@ -150,6 +157,10 @@ def cmd_process(args: argparse.Namespace) -> None:
         "processed_wavenumber_range": experiment.processed_wavenumber_range,
         "original_spectral_points": experiment.original_spectral_points,
         "processed_spectral_points": experiment.processed_spectral_points,
+        "block_range_requested": args.block_range,
+        "block_range_used": processed_block_range,
+        "blocks_loaded": experiment.n_blocks,
+        "blocks_processed": len(isolated.block_indices),
         "normalize_time": not args.no_normalize_time,
         "normalize_power": not args.no_normalize_power,
         "spike_method": "block_mad",
@@ -222,7 +233,11 @@ def cmd_process(args: argparse.Namespace) -> None:
     print("Processing complete")
     print("=" * 22)
     print(f"Resolved output folder: {output}")
-    print(f"Blocks processed: {experiment.n_blocks}")
+    print(f"Blocks loaded: {experiment.n_blocks}")
+    print(f"Blocks processed: {len(isolated.block_indices)}")
+    if args.block_range is not None:
+        print(f"Requested block range: {format_block_index_range(args.block_range)}")
+    print(f"Processed block indices: {format_block_index_range(processed_block_range)}")
     print(f"Spectral points: {len(isolated.wavenumber)}")
     if experiment.original_wavenumber_range is not None:
         print(
@@ -337,6 +352,13 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("info_file", help="Path to *_info.txt file.")
     process.add_argument("--camera", default="A", help="Camera to process. Default: A")
     process.add_argument("--output", default="processed", help="Output folder. Default: processed")
+    process.add_argument(
+        "--range",
+        dest="block_range",
+        type=parse_block_range,
+        metavar="START-END",
+        help="Inclusive filename block index range to process, e.g. 1-50 keeps A-001 through A-050.",
+    )
     add_wavenumber_filter_args(process)
     process.add_argument(
         "--spike-threshold",
@@ -421,6 +443,29 @@ def add_wavenumber_filter_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Maximum wavenumber to keep after axis reversal.",
     )
+
+
+def parse_block_range(value: str) -> tuple[int, int]:
+    parts = value.split("-", maxsplit=1)
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError(
+            "Expected block range in START-END format, for example 1-50."
+        )
+
+    start_text, end_text = (part.strip() for part in parts)
+    if not start_text.isdigit() or not end_text.isdigit():
+        raise argparse.ArgumentTypeError(
+            "Block range bounds must be non-negative integers, for example 1-50."
+        )
+
+    start = int(start_text)
+    end = int(end_text)
+    if start > end:
+        raise argparse.ArgumentTypeError(
+            f"Block range start ({start}) cannot be greater than end ({end})."
+        )
+
+    return (start, end)
 
 
 def main() -> None:
