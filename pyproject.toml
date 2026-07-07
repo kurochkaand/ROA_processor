@@ -24,3 +24,6 @@ roa = "roa_processor.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["roa_processor*"]
+
+[tool.pytest.ini_options]
+addopts = "--basetemp=.pytest-tmp -p no:cacheprovider"
