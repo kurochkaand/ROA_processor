@@ -3,3 +3,5 @@ venv/
 .venv/
 *.egg-info/
 prompts.txt
+.pytest_cache/
+.pytest-tmp/
