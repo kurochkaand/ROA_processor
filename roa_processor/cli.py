@@ -5,6 +5,7 @@ from pathlib import Path
 
 from roa_processor.io.export import (
     ensure_output_dirs,
+    load_isolated_npz,
     load_processed_npz,
     resolve_output_path,
     save_final_spectra,
@@ -15,10 +16,12 @@ from roa_processor.io.export import (
     save_spikes,
 )
 from roa_processor.io.load_experiment import load_experiment
+from roa_processor.models import IsolatedExperiment
 from roa_processor.plotting.plots import (
     plot_final_from_csv,
     plot_final_roa_qc_comparison,
     plot_final_spectra,
+    plot_isolated_raman_blocks,
     plot_isolated_roa_blocks,
     plot_roa_qc_noise_by_block,
     plot_roa_qc_region,
@@ -195,6 +198,10 @@ def cmd_process(args: argparse.Namespace) -> None:
         isolated,
         output_path=figures / "isolated_roa_blocks_before_spike_removal.png",
     )
+    plot_isolated_raman_blocks(
+        isolated,
+        output_path=figures / "isolated_raman_blocks_overlap.png",
+    )
     plot_isolated_roa_blocks(
         isolated,
         cleaned_roa=spike_result.roa_cleaned,
@@ -274,11 +281,28 @@ def cmd_plot(args: argparse.Namespace) -> None:
         plot_final_from_csv(csv_path, output_path=figures / "final_from_csv.png")
         print(f"Saved final plots to {figures}")
 
-    elif args.kind in {"spikes", "isolated-roa"}:
+    elif args.kind in {"spikes", "isolated-roa", "isolated-raman"}:
+        if args.kind == "isolated-raman":
+            isolated_data = load_isolated_npz(output)
+            isolated = IsolatedExperiment(
+                wavenumber=isolated_data["wavenumber"],
+                raman_raw=isolated_data["raman_raw"],
+                roa_raw=isolated_data["roa_raw"],
+                raman_norm=isolated_data["raman_norm"],
+                roa_norm=isolated_data["roa_norm"],
+                delta_times_s=isolated_data["delta_times_s"],
+                delta_cycles=isolated_data["delta_cycles"],
+                power_at_sample_mw=isolated_data["power_at_sample_mw"],
+                block_indices=isolated_data["block_indices"],
+            )
+            path = figures / "isolated_raman_blocks_overlap_from_npz.png"
+            plot_isolated_raman_blocks(isolated, output_path=path)
+            print(f"Saved {path}")
+            return
+
         data = load_processed_npz(output)
         # Lightweight plotting from NPZ without fully reconstructing all dataclasses.
         import matplotlib.pyplot as plt
-        import numpy as np
 
         wavenumber = data["wavenumber"]
         block_indices = data["block_indices"]
@@ -421,7 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plot.add_argument(
         "--kind",
-        choices=["final", "spikes", "isolated-roa"],
+        choices=["final", "spikes", "isolated-roa", "isolated-raman"],
         default="final",
         help="Plot kind. Default: final",
     )

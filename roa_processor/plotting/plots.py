@@ -45,6 +45,38 @@ def plot_isolated_roa_blocks(
     _save_or_show(Path(output_path) if output_path else None)
 
 
+def plot_isolated_raman_blocks(
+    isolated: IsolatedExperiment,
+    output_path: str | Path | None = None,
+    max_blocks: int | None = None,
+) -> None:
+    x = isolated.wavenumber
+    y = isolated.raman_norm
+    block_indices = isolated.block_indices
+
+    if max_blocks is not None:
+        y = y[:max_blocks, :]
+        block_indices = block_indices[:max_blocks]
+
+    plt.figure(figsize=(10, 6))
+    if len(y) > 2:
+        for row in y[1:-1]:
+            plt.plot(x, row, color="0.55", linewidth=0.7, alpha=0.35)
+
+    first_label = f"First block {int(block_indices[0]):03d}"
+    plt.plot(x, y[0], label=first_label, linewidth=2.0, alpha=0.95)
+
+    if len(y) > 1:
+        last_label = f"Last block {int(block_indices[-1]):03d}"
+        plt.plot(x, y[-1], label=last_label, linewidth=2.0, alpha=0.95)
+
+    plt.title("Isolated Raman block overlap")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("Raman intensity, normalized")
+    plt.legend()
+    _save_or_show(Path(output_path) if output_path else None)
+
+
 def plot_spike_heatmap(
     isolated: IsolatedExperiment,
     spike_result: SpikeResult,

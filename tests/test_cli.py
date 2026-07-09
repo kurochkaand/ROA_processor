@@ -16,6 +16,12 @@ def test_process_parser_accepts_block_range():
     assert args.block_range == (1, 50)
 
 
+def test_plot_parser_accepts_isolated_raman_kind():
+    args = build_parser().parse_args(["plot", "processed", "--kind", "isolated-raman"])
+
+    assert args.kind == "isolated-raman"
+
+
 def test_parse_block_range_rejects_invalid_values():
     with pytest.raises(argparse.ArgumentTypeError):
         parse_block_range("50-1")

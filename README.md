@@ -96,6 +96,7 @@ standard `roa_mean_after_spike_removal` column.
 roa plot processed --info-file "X:\...\sample_info.txt" --kind final
 roa plot processed --info-file "X:\...\sample_info.txt" --kind spikes
 roa plot processed --info-file "X:\...\sample_info.txt" --kind isolated-roa
+roa plot processed --info-file "X:\...\sample_info.txt" --kind isolated-raman
 ```
 
 `--info-file` lets the plot command resolve a relative processed folder the same

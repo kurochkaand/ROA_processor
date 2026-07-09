@@ -157,3 +157,13 @@ def load_processed_npz(output: str | Path) -> dict[str, np.ndarray]:
             f"Cannot find {path}. Run 'roa process ...' first."
         )
     return dict(np.load(path))
+
+
+def load_isolated_npz(output: str | Path) -> dict[str, np.ndarray]:
+    output = Path(output)
+    path = output / "isolated_blocks.npz"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Cannot find {path}. Run 'roa process ...' first."
+        )
+    return dict(np.load(path))
