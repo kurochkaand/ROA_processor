@@ -22,7 +22,7 @@ from roa_processor.plotting.plots import (
     plot_final_roa_qc_comparison,
     plot_final_spectra,
     plot_isolated_raman_blocks,
-    plot_isolated_roa_blocks,
+    plot_isolated_roa_spike_removal_comparison,
     plot_roa_before_after_qc_rejection,
     plot_roa_qc_noise_by_block,
     plot_roa_qc_region,
@@ -202,18 +202,16 @@ def cmd_process(args: argparse.Namespace) -> None:
     save_final_spectra(output, final)
 
     figures = output / "figures"
-    plot_isolated_roa_blocks(
-        isolated,
-        output_path=figures / "isolated_roa_blocks_before_spike_removal.png",
+    plot_isolated_roa_spike_removal_comparison(
+        isolated.wavenumber,
+        isolated.roa_norm,
+        spike_result.roa_cleaned,
+        isolated.block_indices,
+        output_path=figures / "isolated_roa_blocks_spike_removal_comparison.png",
     )
     plot_isolated_raman_blocks(
         isolated,
         output_path=figures / "isolated_raman_blocks_overlap.png",
-    )
-    plot_isolated_roa_blocks(
-        isolated,
-        cleaned_roa=spike_result.roa_cleaned,
-        output_path=figures / "isolated_roa_blocks_after_spike_removal.png",
     )
     plot_spike_heatmap(
         isolated,
@@ -343,30 +341,15 @@ def cmd_plot(args: argparse.Namespace) -> None:
             roa_before = data["roa_before"]
             roa_cleaned = data["roa_cleaned"]
 
-            plt.figure(figsize=(10, 6))
-            for row in roa_before:
-                plt.plot(wavenumber, row, linewidth=0.7, alpha=0.5)
-            plt.title("Isolated ROA blocks before spike replacement")
-            plt.xlabel("Wavenumber / cm$^{-1}$")
-            plt.ylabel("ROA intensity, normalized")
-            path = figures / "isolated_roa_blocks_before_from_npz.png"
-            plt.tight_layout()
-            plt.savefig(path, dpi=200)
-            plt.close()
-
-            plt.figure(figsize=(10, 6))
-            for row in roa_cleaned:
-                plt.plot(wavenumber, row, linewidth=0.7, alpha=0.5)
-            plt.title("Isolated ROA blocks after spike replacement")
-            plt.xlabel("Wavenumber / cm$^{-1}$")
-            plt.ylabel("ROA intensity, normalized")
-            path2 = figures / "isolated_roa_blocks_after_from_npz.png"
-            plt.tight_layout()
-            plt.savefig(path2, dpi=200)
-            plt.close()
-
+            path = figures / "isolated_roa_blocks_spike_removal_comparison_from_npz.png"
+            plot_isolated_roa_spike_removal_comparison(
+                wavenumber,
+                roa_before,
+                roa_cleaned,
+                block_indices,
+                output_path=path,
+            )
             print(f"Saved {path}")
-            print(f"Saved {path2}")
 
     else:
         raise ValueError(f"Unknown plot kind: {args.kind}")

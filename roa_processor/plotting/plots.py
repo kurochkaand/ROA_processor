@@ -45,6 +45,86 @@ def plot_isolated_roa_blocks(
     _save_or_show(Path(output_path) if output_path else None)
 
 
+def plot_isolated_roa_spike_removal_comparison(
+    wavenumber: np.ndarray,
+    roa_before: np.ndarray,
+    roa_after: np.ndarray,
+    block_indices: np.ndarray,
+    output_path: str | Path | None = None,
+    n_blocks: int = 10,
+) -> None:
+    if n_blocks <= 0:
+        raise ValueError("n_blocks must be positive.")
+    if roa_before.shape != roa_after.shape:
+        raise ValueError("roa_before and roa_after must have the same shape.")
+    if roa_before.ndim != 2:
+        raise ValueError("ROA block arrays must be two-dimensional.")
+    if len(block_indices) != roa_before.shape[0]:
+        raise ValueError("block_indices length must match the number of ROA blocks.")
+    if len(wavenumber) != roa_before.shape[1]:
+        raise ValueError("wavenumber length must match the number of spectral points.")
+    if roa_before.shape[0] == 0:
+        raise ValueError("No ROA blocks are available to plot.")
+
+    row_indices = _representative_row_indices(roa_before.shape[0], n_blocks)
+    before = roa_before[row_indices, :]
+    after = roa_after[row_indices, :]
+    offsets = np.arange(len(row_indices) - 1, -1, -1) * _stack_offset_step(before, after)
+
+    plt.figure(figsize=(10, max(8, 1.0 * len(row_indices) + 2)))
+    for plot_index, row_index in enumerate(row_indices):
+        offset = offsets[plot_index]
+        before_label = "Before spike removal" if plot_index == 0 else "_nolegend_"
+        after_label = "After spike removal" if plot_index == 0 else "_nolegend_"
+        plt.plot(
+            wavenumber,
+            roa_before[row_index] + offset,
+            color="C3",
+            linewidth=0.8,
+            alpha=0.7,
+            label=before_label,
+        )
+        plt.plot(
+            wavenumber,
+            roa_after[row_index] + offset,
+            color="C0",
+            linewidth=0.9,
+            alpha=0.9,
+            label=after_label,
+        )
+
+    tick_labels = [f"Block {int(block_indices[row_index]):03d}" for row_index in row_indices]
+    plt.yticks(offsets, tick_labels)
+    plt.title("Representative isolated ROA blocks before/after spike removal")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("ROA block, offset")
+    plt.legend(loc="upper right")
+    plt.margins(x=0)
+    _save_or_show(Path(output_path) if output_path else None)
+
+
+def _representative_row_indices(n_rows: int, n_blocks: int) -> np.ndarray:
+    n_selected = min(n_rows, n_blocks)
+    return np.linspace(0, n_rows - 1, n_selected, dtype=int)
+
+
+def _stack_offset_step(before: np.ndarray, after: np.ndarray) -> float:
+    finite = np.concatenate([before.ravel(), after.ravel()])
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0:
+        return 1.0
+
+    robust_span = float(np.percentile(finite, 95) - np.percentile(finite, 5))
+    if robust_span > 0:
+        return robust_span * 1.35
+
+    max_abs = float(np.max(np.abs(finite)))
+    if max_abs > 0:
+        return max_abs * 1.35
+
+    return 1.0
+
+
 def plot_isolated_raman_blocks(
     isolated: IsolatedExperiment,
     output_path: str | Path | None = None,
