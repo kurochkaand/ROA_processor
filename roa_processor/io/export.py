@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -24,11 +25,38 @@ def resolve_output_path(output: str | Path, base_dir: str | Path | None = None) 
     return output
 
 
-def ensure_output_dirs(output: str | Path, base_dir: str | Path | None = None) -> Path:
+def ensure_output_dirs(
+    output: str | Path,
+    base_dir: str | Path | None = None,
+    *,
+    replace_existing: bool = False,
+) -> Path:
     output = resolve_output_path(output, base_dir=base_dir)
+    if replace_existing and output.exists():
+        _validate_replacement_target(output, base_dir=base_dir)
+        shutil.rmtree(output)
     output.mkdir(parents=True, exist_ok=True)
     (output / "figures").mkdir(parents=True, exist_ok=True)
     return output
+
+
+def _validate_replacement_target(
+    output: Path,
+    base_dir: str | Path | None = None,
+) -> None:
+    if output.is_symlink() or not output.is_dir():
+        raise FileExistsError(f"Output path exists and is not a directory: {output}")
+
+    if output == output.parent:
+        raise ValueError(f"Refusing to replace filesystem root: {output}")
+
+    if base_dir is not None:
+        source_dir = Path(base_dir).resolve()
+        if source_dir == output or source_dir.is_relative_to(output):
+            raise ValueError(
+                "Refusing to replace output directory because it contains the input data "
+                f"directory: {output}"
+            )
 
 
 def save_metadata(

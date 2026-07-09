@@ -16,6 +16,12 @@ def test_process_parser_accepts_block_range():
     assert args.block_range == (1, 50)
 
 
+def test_process_parser_defaults_output_to_processed():
+    args = build_parser().parse_args(["process", "sample_info.txt"])
+
+    assert args.output == "processed"
+
+
 def test_plot_parser_accepts_isolated_raman_kind():
     args = build_parser().parse_args(["plot", "processed", "--kind", "isolated-raman"])
 

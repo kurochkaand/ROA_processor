@@ -104,7 +104,8 @@ def cmd_inspect(args: argparse.Namespace) -> None:
 
 
 def cmd_process(args: argparse.Namespace) -> None:
-    output = ensure_output_dirs(args.output, base_dir=Path(args.info_file).parent)
+    input_dir = Path(args.info_file).parent
+    output = resolve_output_path(args.output, base_dir=input_dir)
 
     experiment = load_experiment(
         args.info_file,
@@ -185,6 +186,8 @@ def cmd_process(args: argparse.Namespace) -> None:
         ),
         "output_directory_resolved_path": str(output),
     }
+
+    output = ensure_output_dirs(output, base_dir=input_dir, replace_existing=True)
 
     save_metadata(output, experiment, extra=processing_config)
     save_processing_config(output, processing_config)
