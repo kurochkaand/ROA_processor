@@ -145,6 +145,24 @@ def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
         }
     )
     df.to_csv(output / "final_spectra.csv", index=False)
+    save_final_spectra_prn_results(output, df)
+
+
+def save_final_spectra_prn_results(output: str | Path, df: pd.DataFrame) -> None:
+    output = ensure_output_dirs(output)
+    results = output / "results"
+    results.mkdir(parents=True, exist_ok=True)
+
+    x_header = df.columns[0]
+    x_values = df[x_header]
+    for y_header in df.columns[1:]:
+        prn = pd.DataFrame(
+            {
+                x_header: x_values,
+                y_header: df[y_header],
+            }
+        )
+        prn.to_csv(results / f"{y_header}.prn", sep=" ", header=False, index=False)
 
 
 def _optional_column(values: np.ndarray | None, n_points: int) -> np.ndarray:

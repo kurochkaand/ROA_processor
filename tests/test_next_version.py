@@ -71,6 +71,18 @@ def test_min_wavenumber_filter_is_reflected_in_export(tmp_path):
     assert df["roa_mean_after_qc_rejection"].isna().all()
     assert df["roa_qc_weighted_mean"].isna().all()
 
+    results = output / "results"
+    prn_paths = sorted(results.glob("*.prn"))
+    assert results.is_dir()
+    assert len(prn_paths) == len(df.columns) - 1
+    assert not (results / "wavenumber_cm-1.prn").exists()
+    assert (results / "raman_mean.prn").exists()
+
+    raman_prn = pd.read_csv(results / "raman_mean.prn", sep=" ", header=None)
+    assert list(raman_prn.columns) == [0, 1]
+    np.testing.assert_allclose(raman_prn[0], df["wavenumber_cm-1"])
+    np.testing.assert_allclose(raman_prn[1], df["raman_mean"])
+
 
 def test_relative_output_resolves_against_input_data_directory(tmp_path):
     data_dir = tmp_path / "data"
