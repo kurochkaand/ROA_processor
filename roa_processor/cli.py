@@ -23,6 +23,7 @@ from roa_processor.plotting.plots import (
     plot_final_spectra,
     plot_isolated_raman_blocks,
     plot_isolated_roa_blocks,
+    plot_roa_before_after_qc_rejection,
     plot_roa_qc_noise_by_block,
     plot_roa_qc_region,
     plot_roa_qc_removed_noise,
@@ -139,6 +140,7 @@ def cmd_process(args: argparse.Namespace) -> None:
         denoise_qc=denoise_qc,
         reject_blocks=args.roa_qc_reject_blocks,
         max_block_noise=args.roa_qc_max_block_noise,
+        highest_noise_reject_blocks=args.roa_highest_noise_reject_blocks,
         min_qc_points=args.roa_qc_min_points,
         smooth_qc_weighted=args.roa_qc_smooth,
     )
@@ -146,10 +148,16 @@ def cmd_process(args: argparse.Namespace) -> None:
     final = make_final_spectra(
         isolated,
         spike_result,
+        qc_accepted_mask=qc_result.accepted_mask,
         roa_qc_weighted_mean=qc_result.weighted_mean,
         roa_qc_weighted_smoothed=qc_result.smoothed,
         roa_qc_removed_noise=qc_result.removed_noise,
     )
+    averaging_methods = ["mean_after_spike_removal"]
+    if final.roa_mean_after_qc_rejection is not None:
+        averaging_methods.append("qc_rejection")
+    if denoise_qc and qc_result.weighted_mean is not None:
+        averaging_methods.append("qc_weighted")
 
     processing_config = {
         "camera": args.camera,
@@ -175,15 +183,12 @@ def cmd_process(args: argparse.Namespace) -> None:
         "roa_denoise_qc": denoise_qc,
         "roa_qc_reject_blocks": args.roa_qc_reject_blocks,
         "roa_qc_max_block_noise": args.roa_qc_max_block_noise,
+        "roa_highest_noise_reject_blocks": args.roa_highest_noise_reject_blocks,
         "roa_qc_min_points": args.roa_qc_min_points,
         "roa_qc_smooth": args.roa_qc_smooth,
         "roa_qc_smoothing_parameters": qc_result.smoothing_parameters,
         "number_of_blocks_rejected_by_qc": qc_result.n_rejected,
-        "averaging_method": (
-            "mean_after_spike_removal_plus_qc_weighted"
-            if denoise_qc and qc_result.weighted_mean is not None
-            else "mean_after_spike_removal"
-        ),
+        "averaging_method": "_plus_".join(averaging_methods),
         "output_directory_resolved_path": str(output),
     }
 
@@ -232,6 +237,11 @@ def cmd_process(args: argparse.Namespace) -> None:
         final,
         output_path=figures / "final_roa_qc_comparison.png",
     )
+    if final.roa_mean_after_qc_rejection is not None:
+        plot_roa_before_after_qc_rejection(
+            final,
+            output_path=figures / "roa_before_after_qc_rejection.png",
+        )
     if final.roa_qc_removed_noise is not None:
         plot_roa_qc_removed_noise(
             final,
@@ -428,6 +438,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reject blocks with QC noise above this multiple of median QC noise. Default: 3.0",
     )
     process.add_argument(
+        "--roa-highest-noise-reject-blocks",
+        type=parse_non_negative_int,
+        default=0,
+        metavar="N",
+        help="Reject N blocks with the largest ROA QC noise sigma. Default: 0",
+    )
+    process.add_argument(
         "--roa-qc-min-points",
         type=int,
         default=5,
@@ -493,6 +510,17 @@ def parse_block_range(value: str) -> tuple[int, int]:
         )
 
     return (start, end)
+
+
+def parse_non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Expected a non-negative integer.") from exc
+
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("Expected a non-negative integer.")
+    return parsed
 
 
 def main() -> None:

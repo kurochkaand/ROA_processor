@@ -83,13 +83,18 @@ reject blocks unless requested.
 ```bash
 roa process "X:\...\sample_info.txt" --roa-qc-range 1800 2609
 roa process "X:\...\sample_info.txt" --roa-denoise-qc
-roa process "X:\...\sample_info.txt" --roa-denoise-qc --roa-qc-reject-blocks --roa-qc-max-block-noise 3
+roa process "X:\...\sample_info.txt" --roa-highest-noise-reject-blocks 2
 roa process "X:\...\sample_info.txt" --roa-qc-smooth
 ```
 
 QC denoising exports comparison columns such as `roa_qc_weighted_mean`,
 `roa_qc_weighted_smoothed`, and `roa_qc_removed_noise`. It never overwrites the
 standard `roa_mean_after_spike_removal` column.
+
+`--roa-highest-noise-reject-blocks N` rejects the `N` blocks with the largest
+ROA QC noise sigma. The accepted-block ROA average is exported as
+`roa_mean_after_qc_rejection`, and processing also writes the comparison figure
+`figures/roa_before_after_qc_rejection.png`.
 
 ## Plot from processed result
 

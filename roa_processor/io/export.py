@@ -130,6 +130,10 @@ def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
             "raman_median": final.raman_median,
             "roa_mean_before_spike_removal": final.roa_mean_before_spike_removal,
             "roa_mean_after_spike_removal": final.roa_mean_after_spike_removal,
+            "roa_mean_after_qc_rejection": _optional_column(
+                final.roa_mean_after_qc_rejection,
+                n_points,
+            ),
             "roa_median_after_spike_removal": final.roa_median_after_spike_removal,
             "roa_qc_weighted_mean": _optional_column(final.roa_qc_weighted_mean, n_points),
             "roa_qc_weighted_smoothed": _optional_column(

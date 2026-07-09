@@ -72,6 +72,7 @@ def analyze_roa_qc(
     denoise_qc: bool = False,
     reject_blocks: bool = False,
     max_block_noise: float = 3.0,
+    highest_noise_reject_blocks: int = 0,
     min_qc_points: int = 5,
     smooth_qc_weighted: bool = False,
 ) -> RoaQcResult:
@@ -81,6 +82,8 @@ def analyze_roa_qc(
         raise ValueError("spike_mask shape must match roa_cleaned.")
     if max_block_noise <= 0:
         raise ValueError("max_block_noise must be positive.")
+    if highest_noise_reject_blocks < 0:
+        raise ValueError("highest_noise_reject_blocks must be non-negative.")
 
     low, high = qc_range
     if low > high:
@@ -98,7 +101,7 @@ def analyze_roa_qc(
             block_indices=block_indices,
             spike_mask=spike_mask,
             denoise_qc=denoise_qc,
-            reject_blocks=reject_blocks,
+            reject_blocks=reject_blocks or highest_noise_reject_blocks > 0,
             smooth_qc_weighted=smooth_qc_weighted,
             warning=warning,
         )
@@ -124,6 +127,10 @@ def analyze_roa_qc(
         accepted_mask = np.isfinite(sigmas)
         if np.isfinite(median_sigma) and median_sigma > 0:
             accepted_mask &= (sigmas / median_sigma) <= max_block_noise
+
+    if highest_noise_reject_blocks > 0:
+        accepted_mask &= np.isfinite(sigmas)
+        accepted_mask &= ~_highest_noise_rejected_mask(sigmas, highest_noise_reject_blocks)
 
     rejected_mask = ~accepted_mask
     weights = None
@@ -168,11 +175,27 @@ def analyze_roa_qc(
         smoothed=smoothed,
         removed_noise=removed_noise,
         denoise_enabled=denoise_qc,
-        reject_blocks_enabled=reject_blocks,
+        reject_blocks_enabled=reject_blocks or highest_noise_reject_blocks > 0,
         smoothing_enabled=smooth_qc_weighted,
         smoothing_parameters=smoothing_parameters,
         warning=warning,
     )
+
+
+def _highest_noise_rejected_mask(sigmas: np.ndarray, n_blocks: int) -> np.ndarray:
+    finite_indices = np.flatnonzero(np.isfinite(sigmas))
+    if n_blocks >= finite_indices.size:
+        raise ValueError(
+            "highest_noise_reject_blocks must leave at least one block with finite QC noise."
+        )
+
+    rejected = np.zeros(sigmas.shape, dtype=bool)
+    if n_blocks == 0:
+        return rejected
+
+    order = finite_indices[np.argsort(sigmas[finite_indices], kind="mergesort")]
+    rejected[order[-n_blocks:]] = True
+    return rejected
 
 
 def smooth_qc_weighted_mean(

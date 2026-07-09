@@ -118,6 +118,8 @@ def plot_final_spectra(
     plt.figure(figsize=(10, 6))
     plt.plot(x, final.roa_mean_before_spike_removal, label="ROA before spike removal", alpha=0.6)
     plt.plot(x, final.roa_mean_after_spike_removal, label="ROA after spike removal")
+    if final.roa_mean_after_qc_rejection is not None:
+        plt.plot(x, final.roa_mean_after_qc_rejection, label="ROA after QC block rejection")
     plt.title("Final ROA spectrum")
     plt.xlabel("Wavenumber / cm$^{-1}$")
     plt.ylabel("ROA intensity, normalized")
@@ -168,6 +170,8 @@ def plot_final_roa_qc_comparison(
     x = final.wavenumber
     plt.figure(figsize=(10, 6))
     plt.plot(x, final.roa_mean_after_spike_removal, label="ROA mean after spike removal")
+    if final.roa_mean_after_qc_rejection is not None:
+        plt.plot(x, final.roa_mean_after_qc_rejection, label="ROA mean after QC block rejection")
     if final.roa_qc_weighted_mean is not None:
         plt.plot(x, final.roa_qc_weighted_mean, label="ROA QC-weighted mean", alpha=0.85)
     if final.roa_qc_weighted_smoothed is not None:
@@ -178,6 +182,24 @@ def plot_final_roa_qc_comparison(
             linewidth=1.5,
         )
     plt.title("Final ROA QC comparison")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("ROA intensity, normalized")
+    plt.legend()
+    _save_or_show(Path(output_path) if output_path else None)
+
+
+def plot_roa_before_after_qc_rejection(
+    final: FinalSpectra,
+    output_path: str | Path | None = None,
+) -> None:
+    if final.roa_mean_after_qc_rejection is None:
+        return
+
+    x = final.wavenumber
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, final.roa_mean_after_spike_removal, label="ROA before QC block rejection", alpha=0.7)
+    plt.plot(x, final.roa_mean_after_qc_rejection, label="ROA after QC block rejection")
+    plt.title("ROA before and after QC block rejection")
     plt.xlabel("Wavenumber / cm$^{-1}$")
     plt.ylabel("ROA intensity, normalized")
     plt.legend()
@@ -225,6 +247,8 @@ def plot_final_from_csv(
     plt.figure(figsize=(10, 6))
     plt.plot(x, df["roa_mean_before_spike_removal"], label="ROA before spike removal", alpha=0.6)
     plt.plot(x, df["roa_mean_after_spike_removal"], label="ROA after spike removal")
+    if "roa_mean_after_qc_rejection" in df and not df["roa_mean_after_qc_rejection"].isna().all():
+        plt.plot(x, df["roa_mean_after_qc_rejection"], label="ROA after QC block rejection")
     if "roa_qc_weighted_mean" in df and not df["roa_qc_weighted_mean"].isna().all():
         plt.plot(x, df["roa_qc_weighted_mean"], label="ROA QC-weighted mean", alpha=0.85)
     if "roa_qc_weighted_smoothed" in df and not df["roa_qc_weighted_smoothed"].isna().all():

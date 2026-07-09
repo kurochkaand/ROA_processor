@@ -5,7 +5,8 @@ import pandas as pd
 
 from roa_processor.io.export import resolve_output_path, save_final_spectra
 from roa_processor.io.load_experiment import load_experiment
-from roa_processor.models import FinalSpectra
+from roa_processor.models import FinalSpectra, IsolatedExperiment, SpikeResult
+from roa_processor.processing.average import make_final_spectra
 from roa_processor.processing.isolate_blocks import cumulative_to_isolated
 from roa_processor.processing.roa_qc import (
     MAD_TO_SIGMA,
@@ -67,6 +68,7 @@ def test_min_wavenumber_filter_is_reflected_in_export(tmp_path):
 
     df = pd.read_csv(output / "final_spectra.csv")
     assert df["wavenumber_cm-1"].min() == 300.0
+    assert df["roa_mean_after_qc_rejection"].isna().all()
     assert df["roa_qc_weighted_mean"].isna().all()
 
 
@@ -124,6 +126,62 @@ def test_qc_weighted_average_gives_lower_weight_to_noisier_blocks():
 
     assert weights[0] > weights[1] > weights[2]
     np.testing.assert_allclose(weights.sum(), 1.0)
+
+
+def test_highest_noise_rejection_rejects_requested_noisiest_blocks():
+    wavenumber = np.array([1800.0, 1900.0, 2609.0])
+    roa = np.array(
+        [
+            [-1.0, 0.0, 1.0],
+            [-2.0, 0.0, 2.0],
+            [-5.0, 0.0, 5.0],
+            [-10.0, 0.0, 10.0],
+        ]
+    )
+    spikes = np.zeros_like(roa, dtype=bool)
+
+    result = analyze_roa_qc(
+        wavenumber,
+        roa,
+        spikes,
+        np.array([1, 2, 3, 4]),
+        qc_range=(1800.0, 2609.0),
+        highest_noise_reject_blocks=2,
+        min_qc_points=3,
+    )
+
+    np.testing.assert_array_equal(result.rejected_mask, [False, False, True, True])
+    assert result.n_rejected == 2
+    assert result.reject_blocks_enabled
+    assert [row["qc_accepted"] for row in result.block_summary] == [True, True, False, False]
+
+
+def test_final_spectra_includes_mean_after_qc_rejection():
+    isolated = IsolatedExperiment(
+        wavenumber=np.array([100.0, 200.0]),
+        raman_raw=np.zeros((3, 2)),
+        roa_raw=np.zeros((3, 2)),
+        raman_norm=np.zeros((3, 2)),
+        roa_norm=np.array([[1.0, 10.0], [3.0, 30.0], [100.0, 1000.0]]),
+        delta_times_s=np.ones(3),
+        delta_cycles=np.ones(3),
+        power_at_sample_mw=np.ones(3),
+        block_indices=np.array([1, 2, 3]),
+    )
+    spike_result = SpikeResult(
+        roa_cleaned=isolated.roa_norm.copy(),
+        spike_mask=np.zeros((3, 2), dtype=bool),
+        spike_summary=[],
+        threshold=8.0,
+    )
+
+    final = make_final_spectra(
+        isolated,
+        spike_result,
+        qc_accepted_mask=np.array([True, True, False]),
+    )
+
+    np.testing.assert_allclose(final.roa_mean_after_qc_rejection, [2.0, 20.0])
 
 
 def test_default_loading_keeps_full_wavenumber_range(tmp_path):

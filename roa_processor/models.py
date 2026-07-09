@@ -127,6 +127,7 @@ class FinalSpectra:
     roa_mean_after_spike_removal: np.ndarray
     roa_median_after_spike_removal: np.ndarray
     n_spikes_at_wavenumber: np.ndarray
+    roa_mean_after_qc_rejection: np.ndarray | None = None
     roa_qc_weighted_mean: np.ndarray | None = None
     roa_qc_weighted_smoothed: np.ndarray | None = None
     roa_qc_removed_noise: np.ndarray | None = None

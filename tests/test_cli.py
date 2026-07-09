@@ -2,7 +2,7 @@ import argparse
 
 import pytest
 
-from roa_processor.cli import build_parser, parse_block_range
+from roa_processor.cli import build_parser, parse_block_range, parse_non_negative_int
 
 
 def test_parse_block_range():
@@ -22,6 +22,14 @@ def test_process_parser_defaults_output_to_processed():
     assert args.output == "processed"
 
 
+def test_process_parser_accepts_highest_noise_reject_blocks():
+    args = build_parser().parse_args(
+        ["process", "sample_info.txt", "--roa-highest-noise-reject-blocks", "2"]
+    )
+
+    assert args.roa_highest_noise_reject_blocks == 2
+
+
 def test_plot_parser_accepts_isolated_raman_kind():
     args = build_parser().parse_args(["plot", "processed", "--kind", "isolated-raman"])
 
@@ -34,3 +42,8 @@ def test_parse_block_range_rejects_invalid_values():
 
     with pytest.raises(argparse.ArgumentTypeError):
         parse_block_range("1:")
+
+
+def test_parse_non_negative_int_rejects_negative_values():
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_non_negative_int("-1")
