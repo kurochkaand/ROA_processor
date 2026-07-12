@@ -24,3 +24,18 @@ class ComponentLoadResult:
     def names(self) -> list[str]:
         return [component.name for component in self.components]
 
+
+@dataclass(frozen=True)
+class ManualRamanCorrectionResult:
+    wavenumber: np.ndarray
+    raman_before: np.ndarray
+    raman_after: np.ndarray
+    components: dict[str, RamanComponent]
+    coefficients: dict[str, float]
+    scaled_components: dict[str, np.ndarray]
+    total_component: np.ndarray
+    negative_check: dict[str, float | int]
+
+    @property
+    def has_negative_warning(self) -> bool:
+        return self.negative_check["percentage_negative_points"] > 5.0

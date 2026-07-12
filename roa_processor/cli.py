@@ -12,6 +12,7 @@ from roa_processor.io.export import (
     resolve_output_path,
     save_final_spectra,
     save_isolated_npz,
+    save_manual_raman_correction,
     save_metadata,
     save_processing_config,
     save_roa_qc,
@@ -25,6 +26,9 @@ from roa_processor.plotting.plots import (
     plot_final_spectra,
     plot_isolated_raman_blocks,
     plot_isolated_roa_spike_removal_comparison,
+    plot_raman_manual_before_after,
+    plot_raman_manual_component_subtraction,
+    plot_raman_manual_components_scaled,
     plot_roa_before_after_qc_rejection,
     plot_roa_qc_noise_by_block,
     plot_roa_qc_region,
@@ -39,6 +43,9 @@ from roa_processor.processing.isolate_blocks import (
     format_block_index_range,
 )
 from roa_processor.processing.roa_qc import analyze_roa_qc
+from roa_processor.processing.raman_component_subtraction import (
+    manual_raman_component_subtraction,
+)
 from roa_processor.processing.spike_detection import detect_and_replace_spikes_block_mad
 
 
@@ -164,6 +171,18 @@ def cmd_process(args: argparse.Namespace) -> None:
         roa_qc_weighted_smoothed=qc_result.smoothed,
         roa_qc_removed_noise=qc_result.removed_noise,
     )
+    manual_raman_correction = None
+    if args.raman_component_subtraction == "manual":
+        manual_raman_correction = manual_raman_component_subtraction(
+            final.wavenumber,
+            final.raman_mean,
+            components.components,
+            water_scale=args.water_scale,
+            quartz_scale=args.quartz_scale,
+            air_scale=args.air_scale,
+        )
+        final.raman_component_corrected_manual = manual_raman_correction.raman_after
+
     averaging_methods = ["mean_after_spike_removal"]
     if final.roa_mean_after_qc_rejection is not None:
         averaging_methods.append("qc_rejection")
@@ -180,6 +199,15 @@ def cmd_process(args: argparse.Namespace) -> None:
         "processed_wavenumber_range": experiment.processed_wavenumber_range,
         "original_spectral_points": experiment.original_spectral_points,
         "processed_spectral_points": experiment.processed_spectral_points,
+        "components_folder": str(components.components_dir),
+        "components_folder_found": components.folder_found,
+        "components_loaded": components.names,
+        "raman_component_subtraction": args.raman_component_subtraction,
+        "raman_component_manual_coefficients": (
+            None
+            if manual_raman_correction is None
+            else manual_raman_correction.coefficients
+        ),
         "block_range_requested": args.block_range,
         "block_range_used": processed_block_range,
         "blocks_loaded": experiment.n_blocks,
@@ -210,6 +238,8 @@ def cmd_process(args: argparse.Namespace) -> None:
     save_isolated_npz(output, isolated)
     save_spikes(output, isolated, spike_result)
     save_roa_qc(output, qc_result)
+    if manual_raman_correction is not None:
+        save_manual_raman_correction(output, manual_raman_correction)
     save_final_spectra(output, final)
 
     figures = output / "figures"
@@ -256,6 +286,19 @@ def cmd_process(args: argparse.Namespace) -> None:
             final,
             output_path=figures / "roa_qc_removed_noise.png",
         )
+    if manual_raman_correction is not None:
+        plot_raman_manual_component_subtraction(
+            manual_raman_correction,
+            output_path=figures / "raman_manual_component_subtraction.png",
+        )
+        plot_raman_manual_components_scaled(
+            manual_raman_correction,
+            output_path=figures / "raman_manual_components_scaled.png",
+        )
+        plot_raman_manual_before_after(
+            manual_raman_correction,
+            output_path=figures / "raman_manual_before_after.png",
+        )
 
     n_spikes = int(spike_result.spike_mask.sum())
     print()
@@ -269,6 +312,15 @@ def cmd_process(args: argparse.Namespace) -> None:
     print(f"Processed block indices: {format_block_index_range(processed_block_range)}")
     print(f"Spectral points: {len(isolated.wavenumber)}")
     print_component_report(components)
+    print(f"Raman component subtraction: {args.raman_component_subtraction}")
+    if manual_raman_correction is not None:
+        coeffs = manual_raman_correction.coefficients
+        print(
+            "Manual Raman coefficients: "
+            f"water={coeffs['water']:g}, "
+            f"quartz={coeffs['quartz']:g}, "
+            f"air={coeffs['air']:g}"
+        )
     if experiment.original_wavenumber_range is not None:
         print(
             "Original wavenumber range: "
@@ -285,6 +337,12 @@ def cmd_process(args: argparse.Namespace) -> None:
     print(f"QC blocks rejected: {qc_result.n_rejected}")
     if qc_result.warning:
         print(f"QC warning: {qc_result.warning}")
+    if (
+        manual_raman_correction is not None
+        and manual_raman_correction.has_negative_warning
+    ):
+        print("Warning: manual Raman component subtraction may be too strong.")
+        print("Try reducing water/quartz/air scale factors.")
     print(f"Final spectra: {output / 'final_spectra.csv'}")
     print(f"Figures: {figures}")
     print()
@@ -424,6 +482,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable normalization by power at sample.",
     )
     process.add_argument(
+        "--raman-component-subtraction",
+        choices=["none", "manual"],
+        default="none",
+        help="Raman component subtraction mode. Default: none",
+    )
+    process.add_argument(
+        "--water-scale",
+        type=parse_non_negative_float,
+        default=1.0,
+        help="Manual water component scale. Default: 1.0",
+    )
+    process.add_argument(
+        "--quartz-scale",
+        type=parse_non_negative_float,
+        default=1.0,
+        help="Manual quartz component scale. Default: 1.0",
+    )
+    process.add_argument(
+        "--air-scale",
+        type=parse_non_negative_float,
+        default=1.0,
+        help="Manual air component scale. Default: 1.0",
+    )
+    process.add_argument(
         "--roa-qc-range",
         nargs=2,
         type=float,
@@ -530,6 +612,17 @@ def parse_non_negative_int(value: str) -> int:
 
     if parsed < 0:
         raise argparse.ArgumentTypeError("Expected a non-negative integer.")
+    return parsed
+
+
+def parse_non_negative_float(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Expected a non-negative number.") from exc
+
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("Expected a non-negative number.")
     return parsed
 
 

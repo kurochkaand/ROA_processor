@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from roa_processor.components.models import ManualRamanCorrectionResult
 from roa_processor.models import FinalSpectra, IsolatedExperiment, RoaQcResult, SpikeResult
 
 
@@ -189,6 +190,12 @@ def plot_final_spectra(
 
     plt.figure(figsize=(10, 6))
     plt.plot(x, final.raman_mean, label="Raman mean")
+    if final.raman_component_corrected_manual is not None:
+        plt.plot(
+            x,
+            final.raman_component_corrected_manual,
+            label="Raman manual component corrected",
+        )
     plt.title("Final Raman spectrum")
     plt.xlabel("Wavenumber / cm$^{-1}$")
     plt.ylabel("Raman intensity, normalized")
@@ -205,6 +212,52 @@ def plot_final_spectra(
     plt.ylabel("ROA intensity, normalized")
     plt.legend()
     _save_or_show(Path(output_path).with_name("final_roa.png") if output_path else None)
+
+
+def plot_raman_manual_component_subtraction(
+    correction: ManualRamanCorrectionResult,
+    output_path: str | Path | None = None,
+) -> None:
+    x = correction.wavenumber
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, correction.raman_before, label="Raman before")
+    plt.plot(x, correction.total_component, label="Total scaled component")
+    plt.plot(x, correction.raman_after, label="Raman after manual subtraction")
+    plt.title("Manual Raman component subtraction")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("Raman intensity, normalized")
+    plt.legend()
+    _save_or_show(Path(output_path) if output_path else None)
+
+
+def plot_raman_manual_components_scaled(
+    correction: ManualRamanCorrectionResult,
+    output_path: str | Path | None = None,
+) -> None:
+    x = correction.wavenumber
+    plt.figure(figsize=(10, 6))
+    for name, values in correction.scaled_components.items():
+        plt.plot(x, values, label=f"{name} x {correction.coefficients[name]:g}")
+    plt.title("Scaled manual Raman components")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("Scaled component intensity")
+    plt.legend()
+    _save_or_show(Path(output_path) if output_path else None)
+
+
+def plot_raman_manual_before_after(
+    correction: ManualRamanCorrectionResult,
+    output_path: str | Path | None = None,
+) -> None:
+    x = correction.wavenumber
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, correction.raman_before, label="Before component subtraction")
+    plt.plot(x, correction.raman_after, label="After manual component subtraction")
+    plt.title("Raman before and after manual component subtraction")
+    plt.xlabel("Wavenumber / cm$^{-1}$")
+    plt.ylabel("Raman intensity, normalized")
+    plt.legend()
+    _save_or_show(Path(output_path) if output_path else None)
 
 
 def plot_roa_qc_region(
@@ -318,6 +371,15 @@ def plot_final_from_csv(
 
     plt.figure(figsize=(10, 6))
     plt.plot(x, df["raman_mean"], label="Raman mean")
+    if (
+        "raman_component_corrected_manual" in df
+        and not df["raman_component_corrected_manual"].isna().all()
+    ):
+        plt.plot(
+            x,
+            df["raman_component_corrected_manual"],
+            label="Raman manual component corrected",
+        )
     plt.title("Final Raman spectrum")
     plt.xlabel("Wavenumber / cm$^{-1}$")
     plt.ylabel("Raman intensity, normalized")

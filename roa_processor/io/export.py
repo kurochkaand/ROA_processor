@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from roa_processor.components.models import ManualRamanCorrectionResult
 from roa_processor.models import (
     FinalSpectra,
     IsolatedExperiment,
@@ -127,6 +128,10 @@ def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
         {
             "wavenumber_cm-1": final.wavenumber,
             "raman_mean": final.raman_mean,
+            "raman_component_corrected_manual": _optional_column(
+                final.raman_component_corrected_manual,
+                n_points,
+            ),
             "raman_median": final.raman_median,
             "roa_mean_before_spike_removal": final.roa_mean_before_spike_removal,
             "roa_mean_after_spike_removal": final.roa_mean_after_spike_removal,
@@ -146,6 +151,56 @@ def save_final_spectra(output: str | Path, final: FinalSpectra) -> None:
     )
     df.to_csv(output / "final_spectra.csv", index=False)
     save_final_spectra_prn_results(output, df)
+
+
+def save_manual_raman_correction(
+    output: str | Path,
+    correction: ManualRamanCorrectionResult,
+) -> None:
+    output = ensure_output_dirs(output)
+    folder = output / "raman_correction"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    pd.DataFrame(
+        {
+            "wavenumber_cm-1": correction.wavenumber,
+            "raman_before_component_subtraction": correction.raman_before,
+        }
+    ).to_csv(folder / "raman_before_component_subtraction.csv", index=False)
+
+    pd.DataFrame(
+        {
+            "wavenumber_cm-1": correction.wavenumber,
+            "raman_component_corrected_manual": correction.raman_after,
+        }
+    ).to_csv(folder / "raman_after_manual_component_subtraction.csv", index=False)
+
+    pd.DataFrame(
+        [
+            {
+                "component": name,
+                "scale": correction.coefficients[name],
+                "source_file": str(correction.components[name].source_file),
+            }
+            for name in correction.coefficients
+        ]
+    ).to_csv(folder / "manual_component_coefficients.csv", index=False)
+
+    residual = {
+        "wavenumber_cm-1": correction.wavenumber,
+        "raman_before_component_subtraction": correction.raman_before,
+    }
+    for name in correction.coefficients:
+        residual[f"derived_{name}"] = correction.components[name].intensity
+        residual[f"scaled_{name}"] = correction.scaled_components[name]
+    residual["total_manual_component"] = correction.total_component
+    residual["manual_component_residual"] = correction.raman_after
+    pd.DataFrame(residual).to_csv(folder / "manual_component_residual.csv", index=False)
+
+    pd.DataFrame([correction.negative_check]).to_csv(
+        folder / "manual_negative_check.csv",
+        index=False,
+    )
 
 
 def save_final_spectra_prn_results(output: str | Path, df: pd.DataFrame) -> None:
