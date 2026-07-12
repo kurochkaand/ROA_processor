@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from roa_processor.components.discover import load_components_for_experiment
+from roa_processor.components.models import ComponentLoadResult
 from roa_processor.io.export import (
     ensure_output_dirs,
     load_isolated_npz,
@@ -48,6 +50,10 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         min_wavenumber=args.min_wavenumber,
         max_wavenumber=args.max_wavenumber,
     )
+    components = load_components_for_experiment(
+        experiment.info_file,
+        processed_wavenumber_axis=experiment.wavenumber,
+    )
 
     blocks = experiment.blocks
     wavenumber = experiment.wavenumber
@@ -79,6 +85,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         )
     print(f"Original spectral points: {experiment.original_spectral_points}")
     print(f"Processed spectral points: {len(wavenumber)}")
+    print_component_report(components)
 
     unique_powers = sorted({p for p in powers if p is not None})
     if unique_powers:
@@ -114,6 +121,10 @@ def cmd_process(args: argparse.Namespace) -> None:
         reverse_axis=True,
         min_wavenumber=args.min_wavenumber,
         max_wavenumber=args.max_wavenumber,
+    )
+    components = load_components_for_experiment(
+        experiment.info_file,
+        processed_wavenumber_axis=experiment.wavenumber,
     )
 
     isolated = cumulative_to_isolated(
@@ -257,6 +268,7 @@ def cmd_process(args: argparse.Namespace) -> None:
         print(f"Requested block range: {format_block_index_range(args.block_range)}")
     print(f"Processed block indices: {format_block_index_range(processed_block_range)}")
     print(f"Spectral points: {len(isolated.wavenumber)}")
+    print_component_report(components)
     if experiment.original_wavenumber_range is not None:
         print(
             "Original wavenumber range: "
@@ -276,6 +288,21 @@ def cmd_process(args: argparse.Namespace) -> None:
     print(f"Final spectra: {output / 'final_spectra.csv'}")
     print(f"Figures: {figures}")
     print()
+
+
+def print_component_report(components: ComponentLoadResult) -> None:
+    if not components.folder_found:
+        print("Components folder: not found")
+        print("Raman component correction: disabled")
+        return
+
+    print("Components folder: found")
+    print("Components loaded:")
+    if components.components:
+        for component in components.components:
+            print(f"- {component.name}")
+    else:
+        print("- none")
 
 
 def cmd_plot(args: argparse.Namespace) -> None:
