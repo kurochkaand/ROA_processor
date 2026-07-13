@@ -16,6 +16,7 @@ This first version does:
 10. Averaging cleaned blocks
 11. Exporting CSV/NPZ/JSON files
 12. Plotting diagnostic figures
+13. Optional manual Raman-only component subtraction from `.prn` component spectra
 
 ## Install in editable mode
 
@@ -63,6 +64,7 @@ roa process "X:\...\sample_info.txt" --range 1-50
 roa process "X:\...\sample_info.txt" --spike-threshold 2
 roa process "X:\...\sample_info.txt" --no-normalize-power
 roa process "X:\...\sample_info.txt" --no-normalize-time
+roa process "X:\...\sample_info.txt" --raman-component-subtraction manual --water-scale 1.0 --quartz-scale 1.0 --air-scale 1.0
 ```
 
 The wavenumber filter is applied after file reading and axis reversal, before
@@ -73,6 +75,48 @@ original and processed wavenumber ranges.
 For example, `--range 1-50` processes isolated blocks `A-001` through `A-050`.
 The range is applied after cumulative blocks are converted to isolated blocks,
 so block `A-001` is still calculated as `cumulative_001 - cumulative_000`.
+
+## Raman component subtraction
+
+By default, Raman component subtraction is disabled:
+
+```bash
+roa process "X:\...\sample_info.txt" --raman-component-subtraction none
+```
+
+For manual Raman-only subtraction, place component `.prn` files in a
+`components` folder beside the input `*_info.txt` file:
+
+```text
+sample_folder/
+├── sample_info.txt
+├── sample_A-000_out.txt
+└── components/
+    ├── water.prn
+    ├── quartz.prn
+    └── air.prn
+```
+
+Then run:
+
+```bash
+roa process "X:\...\sample_info.txt" --raman-component-subtraction manual --water-scale 1.0 --quartz-scale 1.0 --air-scale 1.0
+```
+
+The manual correction subtracts the scaled component spectra from the final
+Raman mean only:
+
+```text
+raman_component_corrected_manual =
+    raman_mean
+  - water_scale * water
+  - quartz_scale * quartz
+  - air_scale * air
+```
+
+ROA is not changed by these flags. Scale factors may be zero, but they must be
+non-negative. Manual mode requires `water.prn`, `quartz.prn`, and `air.prn`;
+the component wavenumber axis must match the processed Raman wavenumber axis.
 
 ## ROA QC and conservative denoising
 
@@ -122,6 +166,23 @@ roa_spike_cleaning.npz
 roa_qc.npz
 figures/
 ```
+
+When manual Raman component subtraction is enabled, processing also writes:
+
+```text
+raman_correction/
+├── raman_before_component_subtraction.csv
+├── raman_after_manual_component_subtraction.csv
+├── manual_component_coefficients.csv
+├── manual_component_residual.csv
+└── manual_negative_check.csv
+figures/raman_manual_component_subtraction.png
+figures/raman_manual_components_scaled.png
+figures/raman_manual_before_after.png
+```
+
+`final_spectra.csv` keeps the original `raman_mean` column and adds
+`raman_component_corrected_manual` when manual subtraction is enabled.
 
 ## Important assumption
 
